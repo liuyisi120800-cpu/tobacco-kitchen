@@ -456,6 +456,7 @@
       }
       renderCatalogFilters();
       renderCatalog();
+      listBody.replaceChildren();
       renderList();
       if (detail.open) {
         const item = byId.get(Number(detail.dataset.activeProduct));

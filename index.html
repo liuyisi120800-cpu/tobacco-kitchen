@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#13231d">
+  <meta name="description" content="按品牌浏览卷烟目录，查询资料与参考价格，整理和导出个人清单。">
+  <title>烟草厨房 | 卷烟资料目录</title>
+  <link rel="icon" href="assets/leaf.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="data/catalog.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <svg class="symbol-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-leaf" viewBox="0 0 32 32"><path d="M5 26c5-10 10-14 20-20M9 20c-3-8 4-15 18-15 0 13-6 22-17 19M13 17l-1-5m5 2 5 1m-8 3 5 2" /></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 4 4"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3h6v2M9 11h6m-6 4h6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12m0-12L6 18"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></symbol>
+    <symbol id="i-pack" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="1.8"/><path d="M6 9h12m-8 5h4m-4 3h4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13m-8 4v5m4-5v5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9" r="1.4"/><path d="m4 17 4-4 3 3 4-5 5 6"/></symbol>
+  </svg>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="wordmark" href="#home" aria-label="烟草厨房首页">
+        <span class="brand-mark"><svg class="icon"><use href="#i-leaf"/></svg></span>
+        <span><b>烟草厨房</b><small>TOBACCO KITCHEN</small></span>
+      </a>
+      <nav aria-label="主要导航">
+        <a href="#home" aria-current="page">首页</a>
+        <a href="#catalog">香烟目录</a>
+      </nav>
+      <button class="header-list" id="open-list" type="button">
+        <svg class="icon"><use href="#i-list"/></svg><span>厨房清单</span><span class="counter" id="list-count" aria-label="0 包">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="home">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-photo"></div>
+      <div class="shell hero-inner">
+        <div class="hero-content">
+          <div class="eyebrow hero-label"><span></span> TOBACCO KITCHEN</div>
+          <h1 id="hero-title">烟草厨房</h1>
+          <p>按品牌查阅卷烟款式与参考价格，<br class="hero-break">将需要的条目整理成一张清单。</p>
+          <a class="button button-gold" href="#catalog"><svg class="icon"><use href="#i-grid"/></svg>浏览香烟目录</a>
+        </div>
+        <div class="hero-note"><span></span> 烟叶主题图</div>
+      </div>
+    </section>
+
+    <section class="catalog shell" id="catalog" aria-labelledby="catalog-title">
+      <aside class="sidebar" aria-label="按品牌浏览">
+        <div class="sidebar-head"><svg class="icon"><use href="#i-grid"/></svg><h2>品牌分类</h2></div>
+        <div class="brand-options" id="brand-options"></div>
+      </aside>
+
+      <div class="catalog-main">
+        <div class="catalog-heading">
+          <h2 id="catalog-title">香烟目录</h2>
+          <p id="catalog-meta">按品牌浏览，或搜索具体款式。</p>
+        </div>
+
+        <div class="filter-panel">
+          <label class="search-field">
+            <svg class="icon"><use href="#i-search"/></svg><span class="visually-hidden">搜索目录</span>
+            <input type="search" id="search" placeholder="搜索品牌、品名或序号" autocomplete="off">
+          </label>
+          <div class="filter-fields">
+            <label class="select-field mobile-brand"><span>品牌</span><select id="brand-select" aria-label="品牌"></select><svg class="icon"><use href="#i-down"/></svg></label>
+            <label class="select-field"><span>焦油</span><select id="tar" aria-label="焦油含量">
+              <option value="all">不限</option><option value="light">≤ 5 mg</option><option value="medium">＞ 5–10 mg</option><option value="strong">＞ 10 mg</option><option value="missing">未核实</option>
+            </select><svg class="icon"><use href="#i-down"/></svg></label>
+            <label class="select-field"><span>尼古丁</span><select id="nicotine" aria-label="尼古丁含量">
+              <option value="all">不限</option><option value="light">≤ 0.5 mg</option><option value="medium">＞ 0.5–1 mg</option><option value="strong">＞ 1 mg</option><option value="missing">未核实</option>
+            </select><svg class="icon"><use href="#i-down"/></svg></label>
+            <label class="select-field type-field"><span>类型</span><select id="type" aria-label="香烟类型"><option value="all">不限</option></select><svg class="icon"><use href="#i-down"/></svg></label>
+            <button class="reset-button" id="reset" type="button" hidden>重置</button>
+          </div>
+        </div>
+
+        <div class="results-bar">
+          <p id="result-count" role="status" aria-live="polite"></p>
+          <label class="sort-field"><span>排序</span><select id="sort" aria-label="排序">
+            <option value="default">目录顺序</option><option value="id">原表序号</option><option value="price-asc">价格从低到高</option><option value="price-desc">价格从高到低</option>
+          </select><svg class="icon"><use href="#i-down"/></svg></label>
+        </div>
+        <div class="product-grid" id="products"></div>
+        <nav class="pagination" id="pagination" aria-label="目录分页"></nav>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div class="wordmark footer-mark"><span class="brand-mark"><svg class="icon"><use href="#i-leaf"/></svg></span><span><b>烟草厨房</b><small>TOBACCO KITCHEN</small></span></div>
+      <div><p>价格来源于 2025 年 4 月 14 日版附件，以每包计。</p><p>吸烟有害健康。</p></div>
+    </div>
+  </footer>
+
+  <dialog id="detail-dialog" class="modal detail-modal" aria-labelledby="detail-title">
+    <button type="button" class="icon-button close-button" data-close="detail-dialog" aria-label="关闭商品详情"><svg class="icon"><use href="#i-close"/></svg></button>
+    <div id="detail-content"></div>
+  </dialog>
+
+  <dialog id="list-dialog" class="drawer" aria-labelledby="list-title">
+    <div class="drawer-header">
+      <div><h2 id="list-title">厨房清单</h2><p id="list-summary"></p></div>
+      <button type="button" class="icon-button" data-close="list-dialog" aria-label="关闭厨房清单"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="list-body" id="list-body"></div>
+    <div class="drawer-footer">
+      <div class="list-total"><span>已标价合计</span><strong id="list-total">¥0.00</strong></div>
+      <p class="list-note" id="list-note">金额按附件中的单价计算。</p>
+      <button id="generate-list" type="button" class="button button-green"><svg class="icon"><use href="#i-image"/></svg>生成清单图片</button>
+    </div>
+  </dialog>
+
+  <dialog id="export-dialog" class="modal export-modal" aria-labelledby="export-title">
+    <button type="button" class="icon-button close-button" data-close="export-dialog" aria-label="关闭图片预览"><svg class="icon"><use href="#i-close"/></svg></button>
+    <h2 id="export-title">清单图片</h2>
+    <div class="export-preview"><img id="export-image" alt="厨房清单图片预览"></div>
+    <a id="download-image" class="button button-green" download><svg class="icon"><use href="#i-download"/></svg>下载 PNG</a>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

@@ -1,19 +1,20 @@
 (() => {
   "use strict";
 
-  const products = window.TOBACCO_CATALOG ?? [];
-  const byId = new Map(products.map(product => [product.id, product]));
+  const baseProducts = window.TOBACCO_CATALOG ?? [];
+  let products = baseProducts;
+  let catalogRevision = 0;
+  const byId = new Map();
   const pageSize = 12;
   const storageKey = "tobacco-kitchen-list-v1";
-  const quantityLimit = Math.floor(Number.MAX_SAFE_INTEGER /
-    Math.max(1, products.reduce((sum, product) => sum + Math.max(1, product.price ?? 0), 0)));
-  const byBrand = new Map();
+  let quantityLimit;
   const number = new Intl.NumberFormat("zh-CN");
   const collator = new Intl.Collator("zh-CN");
-  const state = { brand: "", query: "", tar: "all", nicotine: "all", type: "all", sort: "default", page: 1 };
+  const state = { region: "", brand: "", query: "", tar: "all", nicotine: "all", type: "all", sort: "default", page: 1 };
 
   const get = id => document.getElementById(id);
   const brands = get("brand-options");
+  const regionOptions = get("region-options");
   const brandSelect = get("brand-select");
   const search = get("search");
   const sort = get("sort");
@@ -21,6 +22,7 @@
   const grid = get("products");
   const pages = get("pagination");
   const detail = get("detail-dialog");
+  const contact = get("contact-dialog");
   const drawer = get("list-dialog");
   const exportDialog = get("export-dialog");
   const listBody = get("list-body");
@@ -80,28 +82,44 @@
     if (image instanceof HTMLImageElement && image.closest(".product-visual")) image.hidden = true;
   }, true);
 
-  for (const product of products) {
-    byBrand.set(product.brand, (byBrand.get(product.brand) ?? 0) + 1);
-    product.searchText = normalized([product.name, product.brand, englishBrands[product.brand], product.type, product.alias].filter(Boolean).join(" "));
+  function indexProducts() {
+    byId.clear();
+    for (const product of products) {
+      byId.set(product.id, product);
+      product.searchText = normalized([product.name, product.brand, englishBrands[product.brand], product.type, product.alias].filter(Boolean).join(" "));
+    }
+    quantityLimit = Math.floor(Number.MAX_SAFE_INTEGER /
+      Math.max(1, products.reduce((sum, product) => sum + Math.max(100, Math.round((product.price ?? 0) * 100)), 0)));
   }
-  const brandNames = [...byBrand.keys()].sort((a, b) => {
-    if (a === "品牌待核对") return 1;
-    if (b === "品牌待核对") return -1;
-    return byBrand.get(b) - byBrand.get(a) || collator.compare(a, b);
-  });
-  const brandOptions = ["", ...brandNames].map(name => ({
-    name,
-    label: name || "全部品牌",
-    count: name ? byBrand.get(name) : products.length
-  }));
-  brands.innerHTML = brandOptions.map(({ name, label, count }) =>
-    `<button class="brand-option" type="button" data-brand="${esc(name)}" aria-pressed="false"><span>${esc(label)}</span><span>${count}</span></button>`
-  ).join("");
-  brandSelect.innerHTML = brandOptions.map(({ name, label }) => `<option value="${esc(name)}">${esc(label)}</option>`).join("");
 
-  const types = [...new Set(products.flatMap(product => (product.type || "").split(" · ").filter(Boolean)))].sort(collator.compare);
-  get("type").insertAdjacentHTML("beforeend", types.map(type => `<option value="${esc(type)}">${esc(type)}</option>`).join("") + '<option value="missing">未核实</option>');
-  const namedBrandCount = byBrand.size - Number(byBrand.has("品牌待核对"));
+  indexProducts();
+  const byBrand = new Map();
+  let regionProducts;
+
+  function renderCatalogFilters() {
+    byBrand.clear();
+    regionProducts = state.region ? products.filter(product => product.region === state.region) : products;
+    for (const product of regionProducts) byBrand.set(product.brand, (byBrand.get(product.brand) ?? 0) + 1);
+    if (state.brand && !byBrand.has(state.brand)) state.brand = "";
+    const brandNames = [...byBrand.keys()].sort((a, b) =>
+      Number(a === "品牌待核对") - Number(b === "品牌待核对") ||
+      byBrand.get(b) - byBrand.get(a) || collator.compare(a, b));
+    const brandOptions = [{ name: "", label: "全部品牌", count: regionProducts.length }, ...brandNames.map(name =>
+      ({ name, label: name, count: byBrand.get(name) }))];
+    brands.innerHTML = brandOptions.map(({ name, label, count }) =>
+      `<button class="brand-option" type="button" data-brand="${esc(name)}" aria-pressed="false"><span>${esc(label)}</span><span>${count}</span></button>`
+    ).join("");
+    brandSelect.innerHTML = brandOptions.map(({ name, label }) =>
+      `<option value="${esc(name)}">${esc(label)}</option>`).join("");
+    const types = [...new Set(regionProducts.flatMap(product => (product.type || "").split(" · ").filter(Boolean)))].sort(collator.compare);
+    if (state.type !== "all" && state.type !== "missing" && !types.includes(state.type)) state.type = "all";
+    get("type").innerHTML = '<option value="all">不限</option>' + types.map(type =>
+      `<option value="${esc(type)}">${esc(type)}</option>`).join("") + '<option value="missing">未核实</option>';
+    get("type").value = state.type;
+    for (const button of regionOptions.querySelectorAll("[data-region]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.region === state.region));
+    }
+  }
 
   function matchesAmount(value, filter, low, high) {
     if (filter === "all") return true;
@@ -141,7 +159,7 @@
     const specs = [];
     if (Number.isFinite(product.tar)) specs.push(`焦油 ${product.tar} mg`);
     if (Number.isFinite(product.nicotine)) specs.push(`尼古丁 ${product.nicotine} mg`);
-    return `<article class="product-card">
+    return `<article class="product-card${product.outOfStock ? " is-out-of-stock" : ""}">
       <button type="button" class="product-open" data-product="${product.id}" aria-label="查看 ${esc(product.name)} 详情">
         ${visual(product)}
         <span class="product-copy">
@@ -149,7 +167,7 @@
           <span class="product-spec">${esc(specs.join(" · ") || product.type || "规格待核实")}</span>
         </span>
       </button>
-      <div class="product-foot">${productPrice(product)}${quantityControl(product)}</div>
+      <div class="product-foot">${productPrice(product)}${product.outOfStock ? '<span class="stock-status">缺货</span>' : quantityControl(product)}</div>
     </article>`;
   }
 
@@ -178,7 +196,7 @@
 
   function renderCatalog() {
     const tokens = normalized(state.query).split(/\s+/).filter(Boolean);
-    const results = products.filter(product =>
+    const results = regionProducts.filter(product =>
       (!state.brand || product.brand === state.brand) &&
       matchesSearch(product, tokens) &&
       matchesAmount(product.tar, state.tar, 5, 10) &&
@@ -189,10 +207,12 @@
     const pageCount = Math.ceil(results.length / pageSize);
     state.page = Math.min(state.page, pageCount || 1);
     const start = (state.page - 1) * pageSize;
-    get("catalog-title").textContent = state.brand ? `${state.brand} · 香烟目录` : "香烟目录";
+    const title = { domestic: "国内烟目录", international: "国外烟目录" }[state.region] ?? "香烟目录";
+    const namedBrandCount = byBrand.size - Number(byBrand.has("品牌待核对"));
+    get("catalog-title").textContent = state.brand ? `${state.brand} · ${title}` : title;
     get("catalog-meta").textContent = state.brand
       ? `该分类收录 ${byBrand.get(state.brand)} 款，可继续按规格筛选。`
-      : `收录 ${namedBrandCount} 个已归类品牌、${products.length} 款香烟。`;
+      : `收录 ${namedBrandCount} 个已归类品牌、${regionProducts.length} 款香烟。`;
     get("result-count").innerHTML = `共 <strong>${results.length}</strong> 款${results.length ? ` · 显示 ${start + 1}–${Math.min(start + pageSize, results.length)}` : ""}`;
     grid.innerHTML = results.length
       ? results.slice(start, start + pageSize).map(productCard).join("")
@@ -233,6 +253,14 @@
     select.addEventListener("change", () => updateCatalog({ [key]: select.value }));
   }
   sort.addEventListener("change", () => updateCatalog({ sort: sort.value }));
+  regionOptions.addEventListener("click", event => {
+    const button = event.target.closest("[data-region]");
+    if (!button || button.dataset.region === state.region) return;
+    state.region = button.dataset.region;
+    state.brand = "";
+    renderCatalogFilters();
+    updateCatalog({});
+  });
   reset.addEventListener("click", () => {
     search.value = "";
     sort.value = "default";
@@ -255,14 +283,15 @@
     const grouping = product.brand === "品牌待核对"
       ? "品牌归属有待核对。"
       : `该款归入「${product.brand}」。`;
-    return `「${product.name}」是附件中的第 ${product.id} 项。${grouping}${standard}`;
+    const name = product.id <= 231 ? `「${product.name}」是原始价表中的第 ${product.id} 项。` : `「${product.name}」为目录收录款式。`;
+    return `${name}${grouping}${standard}`;
   }
 
   function openDetail(product) {
     get("detail-content").innerHTML = `<article class="detail-layout">
       ${visual(product, "detail-visual")}
       <div class="detail-copy">
-        <p class="detail-brand">${esc(product.brand)} · 原表 #${product.id}</p>
+        <p class="detail-brand">${esc(product.brand)} · ${product.id <= 231 ? "原表" : "目录"} #${product.id}</p>
         <h2 id="detail-title">${esc(product.name)}</h2>
         <p class="detail-text">${esc(description(product))}</p>
         <dl class="specs">
@@ -271,11 +300,13 @@
           <div><dt>尼古丁量</dt><dd>${measured(product.nicotine)}</dd></div>
         </dl>
         <div class="detail-actions">${productPrice(product)}
-          <div class="detail-quantity"><span>清单数量（包）</span>${quantityControl(product)}</div>
+          ${product.outOfStock ? '<span class="stock-status">缺货</span>' : `<div class="detail-quantity"><span>清单数量（包）</span>${quantityControl(product)}</div>`}
         </div>
       </div>
     </article>`;
-    detail.showModal();
+    detail.dataset.activeProduct = product.id;
+    detail.classList.toggle("is-out-of-stock", Boolean(product.outOfStock));
+    if (!detail.open) detail.showModal();
   }
 
   grid.addEventListener("click", event => {
@@ -288,23 +319,33 @@
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
       if (!Array.isArray(saved)) return new Map();
-      return new Map(saved.filter(row => Array.isArray(row) && byId.has(row[0]) &&
-        Number.isSafeInteger(row[1]) && row[1] > 0 && row[1] <= quantityLimit));
+      const loaded = new Map();
+      for (const row of saved) {
+        if (!Array.isArray(row) || !Number.isSafeInteger(row[0]) || !Number.isSafeInteger(row[1]) ||
+            row[1] < 1 || row[1] > quantityLimit) continue;
+        const product = byId.get(row[0]);
+        if (product && !product.outOfStock) loaded.set(...row.slice(0, 2));
+        else if (!product && row[0] >= 1000000) pendingList.set(...row.slice(0, 2));
+      }
+      return loaded;
     } catch {
       return new Map();
     }
   }
 
+  const pendingList = new Map();
   const list = loadList();
 
   function listSnapshot() {
     const rows = [...list].map(([id, quantity]) => ({ product: byId.get(id), quantity }));
-    return rows.reduce((snapshot, { product, quantity }) => {
+    const snapshot = rows.reduce((snapshot, { product, quantity }) => {
       snapshot.quantity += quantity;
       if (product.price == null) snapshot.unpriced += quantity;
-      else snapshot.total += product.price * quantity;
+      else snapshot.total += Math.round(product.price * 100) * quantity;
       return snapshot;
     }, { rows, quantity: 0, unpriced: 0, total: 0 });
+    snapshot.total /= 100;
+    return snapshot;
   }
 
   function quantityControl(product) {
@@ -329,7 +370,7 @@
     get("list-total").textContent = amount(total, true);
     get("list-note").textContent = unpriced
       ? `有 ${unpriced} 包未标价，未计入合计。`
-      : "金额按附件中的单价计算。";
+      : "金额按目录标示的单价计算。";
     generate.disabled = rows.length === 0;
     if (!rows.length) {
       if (!listBody.querySelector(".empty")) {
@@ -362,12 +403,11 @@
   }
 
   function setQuantity(id, quantity, editingInput = null) {
-    if ((list.get(id) ?? 0) === quantity) return;
+    const product = byId.get(id);
+    if (!product || (product.outOfStock && quantity > 0) || (list.get(id) ?? 0) === quantity) return;
     if (quantity > 0) list.set(id, quantity);
     else list.delete(id);
-    try { localStorage.setItem(storageKey, JSON.stringify([...list])); } catch {
-      // The list still works for this browsing session when storage is disabled.
-    }
+    persistList();
     renderList();
     for (const control of document.querySelectorAll(`[data-quantity-for="${id}"]`)) {
       const input = control.querySelector("[data-quantity]");
@@ -377,6 +417,52 @@
       }
       control.querySelector('[data-step="-1"]').disabled = quantity === 0;
       control.querySelector('[data-step="1"]').disabled = quantity === quantityLimit;
+    }
+  }
+
+  function persistList() {
+    try { localStorage.setItem(storageKey, JSON.stringify([...list, ...pendingList])); } catch {
+      // The current browsing session can still use the list without storage.
+    }
+  }
+
+  async function refreshPublicUpdates() {
+    if (location.protocol === "file:" || document.hidden) return;
+    try {
+      const response = await fetch(`data/updates.json?t=${Math.floor(Date.now() / 30000)}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) return;
+      const update = await response.json();
+      if (!Number.isSafeInteger(update.revision) || update.revision <= catalogRevision || !Array.isArray(update.products)) return;
+      const merged = new Map(baseProducts.map(product => [product.id, product]));
+      for (const product of update.products) {
+        if (Number.isSafeInteger(product.id) && product.name && product.brand) merged.set(product.id, product);
+      }
+      products = [...merged.values()];
+      catalogRevision = update.revision;
+      indexProducts();
+      for (const [id, quantity] of pendingList) {
+        const product = byId.get(id);
+        if (product && !product.outOfStock && quantity <= quantityLimit) list.set(id, quantity);
+      }
+      pendingList.clear();
+      const unavailable = [...list.keys()].filter(id => !byId.has(id) || byId.get(id).outOfStock);
+      if (unavailable.length) {
+        for (const id of unavailable) list.delete(id);
+        persistList();
+        notify(`${unavailable.length} 款已缺货，已从清单移除。`, drawer.open ? drawer : detail.open ? detail : null);
+      }
+      renderCatalogFilters();
+      renderCatalog();
+      renderList();
+      if (detail.open) {
+        const item = byId.get(Number(detail.dataset.activeProduct));
+        if (item) openDetail(item);
+      }
+    } catch {
+      // The published baseline remains available while the update file is unreachable.
     }
   }
 
@@ -404,6 +490,9 @@
   });
 
   get("open-list").addEventListener("click", () => drawer.showModal());
+  for (const button of document.querySelectorAll("[data-contact]")) {
+    button.addEventListener("click", () => contact.showModal());
+  }
 
   function editQuantity(input, commit = false) {
     const id = Number(input.dataset.quantity);
@@ -440,7 +529,7 @@
     }
   });
 
-  for (const dialog of [detail, drawer, exportDialog]) {
+  for (const dialog of [detail, drawer, exportDialog, contact]) {
     dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
     let onBackdrop = false;
     dialog.addEventListener("pointerdown", event => {
@@ -535,8 +624,8 @@
     label("已标价合计", margin, footerTop + 37, { size: 30, weight: 700 });
     label(amount(snapshot.total, true), width - margin, footerTop + 37, { size: 36, weight: 750, align: "right" });
     const footnote = snapshot.unpriced
-      ? `有 ${snapshot.unpriced} 包未标价，未计入合计。价格来源于 2025-04-14 版附件。`
-      : "价格来源于 2025-04-14 版附件，以每包计。";
+      ? `有 ${snapshot.unpriced} 包未标价，未计入合计。价格以目录标示为准。`
+      : "价格以目录标示为准，以每包计。";
     label(footnote, margin, footerTop + 82, { size: 21, color: "#5e685c" });
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("PNG encoding failed")), "image/png"));
   }
@@ -568,7 +657,11 @@
     download.removeAttribute("href");
   });
 
+  renderCatalogFilters();
   renderCatalog();
   renderList();
   updateNavigation();
+  refreshPublicUpdates();
+  document.addEventListener("visibilitychange", refreshPublicUpdates);
+  setInterval(refreshPublicUpdates, 30000);
 })();

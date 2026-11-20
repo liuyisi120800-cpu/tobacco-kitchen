@@ -33,10 +33,12 @@
 
   const englishBrands = {
     "百乐": "PEEL", "铁塔猫": "RAISON", "爱喜": "ESSE", "中华": "CHUNGHWA",
-    "阿里山": "ALISHAN", "万宝路": "MARLBORO", "七星": "MEVIUS SEVEN STARS",
+    "阿里山": "ALISHAN", "万宝路": "MARLBORO", "七星": "SEVEN STARS セブンスター",
+    "梅比乌斯": "MEVIUS MILD SEVEN 柔和七星 メビウス", "和平": "PEACE ピース",
+    "查普曼": "CHAPMAN チャップマン 查普门", "中南海": "ZHONGNANHAI",
     "黄鹤楼": "HUANGHELOU", "卡比龙": "CAPILLON", "好彩": "LUCKY STRIKE",
     "骆驼": "CAMEL", "蓝星": "GALAXY GAXALY", "宝恒": "BOHEM 宝亨", "黑杰克": "BLACK JACK",
-    "米兰": "MILANO", "船长": "ARK ROYAL",
+    "米兰": "MILANO", "船长": "ARK ROYAL 皇家方舟 老船长",
     "大卫杜夫": "DAVIDOFF", "兰州": "LANZHOU", "凤凰": "PHOENIX", "寿百年": "SOBRANIE",
     "利群": "LIQUN", "南京": "NANJING", "牡丹": "MUDAN", "芙蓉王": "FURONGWANG",
   };

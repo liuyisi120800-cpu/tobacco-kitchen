@@ -7,9 +7,9 @@
   <meta name="description" content="按品牌浏览卷烟目录，查询资料与参考价格，整理和导出个人清单。">
   <title>烟草厨房 | 卷烟资料目录</title>
   <link rel="icon" href="assets/leaf.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2">
-  <script defer src="data/catalog.js?v=2"></script>
-  <script defer src="app.js?v=2"></script>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script defer src="data/catalog.js?v=3"></script>
+  <script defer src="app.js?v=3"></script>
 </head>
 <body>
   <svg class="symbol-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -37,6 +37,7 @@
       <nav aria-label="主要导航">
         <a href="#home" aria-current="page">首页</a>
         <a href="#catalog">香烟目录</a>
+        <button class="nav-contact" type="button" data-contact>联系厨师长</button>
       </nav>
       <button class="header-list" id="open-list" type="button">
         <svg class="icon"><use href="#i-list"/></svg><span>厨房清单</span><span class="counter" id="list-count" aria-label="0 包">0</span>
@@ -65,8 +66,16 @@
 
       <div class="catalog-main">
         <div class="catalog-heading">
-          <h2 id="catalog-title">香烟目录</h2>
+          <div class="catalog-title-row">
+            <h2 id="catalog-title">香烟目录</h2>
+            <button class="mobile-contact" type="button" data-contact>联系厨师长</button>
+          </div>
           <p id="catalog-meta">按品牌浏览，或搜索具体款式。</p>
+        </div>
+        <div class="region-options" id="region-options" role="group" aria-label="按品牌地区选择目录">
+          <button type="button" data-region="" aria-pressed="true">全部目录</button>
+          <button type="button" data-region="domestic" aria-pressed="false">国内烟</button>
+          <button type="button" data-region="international" aria-pressed="false">国外烟</button>
         </div>
 
         <div class="filter-panel">
@@ -101,10 +110,20 @@
 
   <footer class="site-footer">
     <div class="shell footer-inner">
-      <div class="wordmark footer-mark"><span class="brand-mark"><svg class="icon"><use href="#i-leaf"/></svg></span><span><b>烟草厨房</b><small>TOBACCO KITCHEN</small></span></div>
-      <div><p>价格来源于 2025 年 4 月 14 日版附件，以每包计。</p><p>吸烟有害健康。</p></div>
+      <div class="footer-tools">
+        <div class="wordmark footer-mark"><span class="brand-mark"><svg class="icon"><use href="#i-leaf"/></svg></span><span><b>烟草厨房</b><small>TOBACCO KITCHEN</small></span></div>
+        <a class="developer-link" href="http://127.0.0.1:8767/admin" target="_blank" rel="noopener noreferrer" title="在管理电脑上打开">开发者模式</a>
+      </div>
+      <div><p>参考价以每包计。</p><p><a class="credits-link" href="credits.html">图片署名</a><span aria-hidden="true"> · </span>吸烟有害健康。</p></div>
     </div>
   </footer>
+
+  <dialog id="contact-dialog" class="modal contact-modal" aria-labelledby="contact-title">
+    <button type="button" class="icon-button close-button" data-close="contact-dialog" aria-label="关闭联系窗口"><svg class="icon"><use href="#i-close"/></svg></button>
+    <h2 id="contact-title">联系厨师长</h2>
+    <p>用微信扫描二维码添加联系人。</p>
+    <img src="assets/chef-wechat.png" width="760" height="760" loading="lazy" alt="厨师长的微信联系二维码">
+  </dialog>
 
   <dialog id="detail-dialog" class="modal detail-modal" aria-labelledby="detail-title">
     <button type="button" class="icon-button close-button" data-close="detail-dialog" aria-label="关闭商品详情"><svg class="icon"><use href="#i-close"/></svg></button>

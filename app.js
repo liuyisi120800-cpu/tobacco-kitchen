@@ -5,6 +5,8 @@
   const byId = new Map(products.map(product => [product.id, product]));
   const pageSize = 12;
   const storageKey = "tobacco-kitchen-list-v1";
+  const quantityLimit = Math.floor(Number.MAX_SAFE_INTEGER /
+    Math.max(1, products.reduce((sum, product) => sum + Math.max(1, product.price ?? 0), 0)));
   const byBrand = new Map();
   const number = new Intl.NumberFormat("zh-CN");
   const collator = new Intl.Collator("zh-CN");
@@ -147,9 +149,7 @@
           <span class="product-spec">${esc(specs.join(" · ") || product.type || "规格待核实")}</span>
         </span>
       </button>
-      <div class="product-foot">${productPrice(product)}
-        <button type="button" class="icon-button add-button" data-add="${product.id}" aria-label="将 ${esc(product.name)} 加入厨房清单" title="加入厨房清单">${icon("plus")}</button>
-      </div>
+      <div class="product-foot">${productPrice(product)}${quantityControl(product)}</div>
     </article>`;
   }
 
@@ -258,16 +258,7 @@
     return `「${product.name}」是附件中的第 ${product.id} 项。${grouping}${standard}`;
   }
 
-  function sourceLink(url, label) {
-    if (!/^https?:\/\//.test(url ?? "")) return "";
-    return `<a class="detail-source" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-  }
-
   function openDetail(product) {
-    const sources = [
-      sourceLink(product.source, "查看资料来源"),
-      product.specSource !== product.source ? sourceLink(product.specSource, "查看规格来源") : ""
-    ].filter(Boolean);
     get("detail-content").innerHTML = `<article class="detail-layout">
       ${visual(product, "detail-visual")}
       <div class="detail-copy">
@@ -279,9 +270,8 @@
           <div><dt>焦油量</dt><dd>${measured(product.tar)}</dd></div>
           <div><dt>尼古丁量</dt><dd>${measured(product.nicotine)}</dd></div>
         </dl>
-        ${sources.length ? `<p>${sources.join(" · ")}</p>` : ""}
         <div class="detail-actions">${productPrice(product)}
-          <button class="button button-green" type="button" data-add="${product.id}">${icon("plus")}加入厨房清单</button>
+          <div class="detail-quantity"><span>清单数量（包）</span>${quantityControl(product)}</div>
         </div>
       </div>
     </article>`;
@@ -299,7 +289,7 @@
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
       if (!Array.isArray(saved)) return new Map();
       return new Map(saved.filter(row => Array.isArray(row) && byId.has(row[0]) &&
-        Number.isSafeInteger(row[1]) && row[1] > 0));
+        Number.isSafeInteger(row[1]) && row[1] > 0 && row[1] <= quantityLimit));
     } catch {
       return new Map();
     }
@@ -317,12 +307,18 @@
     }, { rows, quantity: 0, unpriced: 0, total: 0 });
   }
 
-  function controls(product, quantity) {
-    const step = (name, key, label) => `<button type="button" class="icon-button ${key === "remove" ? "remove-button" : ""}" data-step="${key}" data-id="${product.id}" aria-label="${label} ${esc(product.name)}" title="${label}">${icon(name)}</button>`;
-    return `<div class="list-controls">${step("minus", "decrease", "减少")}
-      <span class="quantity" aria-label="${quantity} 包">${quantity}</span>
-      ${step("plus", "increase", "增加")}${step("trash", "remove", "移除")}
+  function quantityControl(product) {
+    const quantity = list.get(product.id) ?? 0;
+    const name = esc(product.name);
+    return `<div class="quantity-control" data-quantity-for="${product.id}">
+      <button type="button" data-step="-1" aria-label="减少 ${name}" title="减一包"${quantity === 0 ? " disabled" : ""}>${icon("minus")}</button>
+      <input type="text" inputmode="numeric" autocomplete="off" aria-label="${name} 清单数量（包）" data-quantity="${product.id}" value="${quantity}">
+      <button type="button" data-step="1" aria-label="增加 ${name}" title="加一包"${quantity === quantityLimit ? " disabled" : ""}>${icon("plus")}</button>
     </div>`;
+  }
+
+  function listLine(product, quantity) {
+    return product.price == null ? "未标价" : `${amount(product.price)} / 包 · 小计 ${amount(product.price * quantity)}`;
   }
 
   function renderList() {
@@ -336,23 +332,52 @@
       : "金额按附件中的单价计算。";
     generate.disabled = rows.length === 0;
     if (!rows.length) {
-      listBody.innerHTML = empty("list", "清单还是空的", "在目录或款式详情中添加条目。");
+      if (!listBody.querySelector(".empty")) {
+        listBody.innerHTML = empty("list", "清单还是空的", "在目录或款式详情中添加条目。");
+      }
       return;
     }
-    listBody.innerHTML = rows.map(({ product, quantity: count }) => `<article class="list-row">
-      ${visual(product, "list-thumb", true)}
-      <div><h3>${esc(product.name)}</h3><p>${product.price == null ? "未标价" : `${amount(product.price)} / 包 · 小计 ${amount(product.price * count)}`}</p></div>
-      ${controls(product, count)}
-    </article>`).join("");
+    listBody.querySelector(".empty")?.remove();
+    const shown = new Map();
+    for (const element of listBody.querySelectorAll("[data-list-row]")) {
+      const id = Number(element.dataset.listRow);
+      if (list.has(id)) shown.set(id, element);
+      else element.remove();
+    }
+    for (const { product, quantity: count } of rows) {
+      const line = listLine(product, count);
+      const subtotal = shown.get(product.id)?.querySelector("[data-subtotal]");
+      if (subtotal) {
+        if (subtotal.textContent !== line) subtotal.textContent = line;
+        continue;
+      }
+      listBody.insertAdjacentHTML("beforeend", `<article class="list-row" data-list-row="${product.id}">
+        ${visual(product, "list-thumb", true)}
+        <div class="list-product"><h3>${esc(product.name)}</h3><p data-subtotal>${line}</p></div>
+        <div class="list-controls">${quantityControl(product)}
+          <button type="button" class="icon-button remove-button" data-remove="${product.id}" aria-label="移除 ${esc(product.name)}" title="移除">${icon("trash")}</button>
+        </div>
+      </article>`);
+    }
   }
 
-  function setQuantity(id, quantity) {
+  function setQuantity(id, quantity, editingInput = null) {
+    if ((list.get(id) ?? 0) === quantity) return;
     if (quantity > 0) list.set(id, quantity);
     else list.delete(id);
     try { localStorage.setItem(storageKey, JSON.stringify([...list])); } catch {
       // The list still works for this browsing session when storage is disabled.
     }
     renderList();
+    for (const control of document.querySelectorAll(`[data-quantity-for="${id}"]`)) {
+      const input = control.querySelector("[data-quantity]");
+      if (input !== editingInput) {
+        input.value = quantity;
+        input.removeAttribute("aria-invalid");
+      }
+      control.querySelector('[data-step="-1"]').disabled = quantity === 0;
+      control.querySelector('[data-step="1"]').disabled = quantity === quantityLimit;
+    }
   }
 
   let toastTimer;
@@ -365,28 +390,54 @@
   }
 
   document.addEventListener("click", event => {
-    const button = event.target.closest("[data-add]");
+    const button = event.target.closest("[data-step], [data-remove]");
     if (!button) return;
-    const product = byId.get(Number(button.dataset.add));
-    if (!product) return;
-    const quantity = list.get(product.id) ?? 0;
-    setQuantity(product.id, quantity + 1);
-    notify(`已加入清单 · ${product.name}`, button.closest("dialog"));
+    const control = button.closest("[data-quantity-for]");
+    const id = Number(control?.dataset.quantityFor ?? button.dataset.remove);
+    const quantity = control ? (list.get(id) ?? 0) + Number(button.dataset.step) : 0;
+    setQuantity(id, quantity);
+    if (!button.isConnected) {
+      (listBody.querySelector("[data-quantity]") ?? drawer.querySelector("[data-close]")).focus({ preventScroll: true });
+    } else if (button.disabled) {
+      control.querySelector("[data-quantity]").focus({ preventScroll: true });
+    }
   });
 
   get("open-list").addEventListener("click", () => drawer.showModal());
-  listBody.addEventListener("click", event => {
-    const button = event.target.closest("[data-step]");
-    if (!button) return;
-    const { id: value, step } = button.dataset;
-    const id = Number(value);
-    const before = list.get(id);
-    if (!before) return;
-    const after = step === "remove" ? 0 : before + (step === "increase" ? 1 : -1);
-    setQuantity(id, after);
-    const equivalent = listBody.querySelector(`[data-id="${id}"][data-step="${step}"]:not(:disabled)`);
-    const fallback = listBody.querySelector(`[data-id="${id}"]:not(:disabled)`) ?? listBody.querySelector("button");
-    (equivalent ?? fallback ?? drawer.querySelector("[data-close]")).focus({ preventScroll: true });
+
+  function editQuantity(input, commit = false) {
+    const id = Number(input.dataset.quantity);
+    const text = normalized(input.value);
+    const value = Number(text);
+    const valid = /^\d+$/.test(text) && Number.isSafeInteger(value) && value <= quantityLimit;
+    if (valid) {
+      input.removeAttribute("aria-invalid");
+      // Keep a drawer row in place while its quantity is being typed.
+      if (commit || value !== 0 || !listBody.contains(input)) setQuantity(id, value, input);
+    }
+    if (commit) {
+      input.value = list.get(id) ?? 0;
+      input.removeAttribute("aria-invalid");
+    } else if (!valid && text) {
+      input.setAttribute("aria-invalid", "true");
+    } else {
+      input.removeAttribute("aria-invalid");
+    }
+  }
+
+  document.addEventListener("input", event => {
+    if (event.target.matches("[data-quantity]") && !event.isComposing) editQuantity(event.target);
+  });
+  document.addEventListener("focusout", event => {
+    if (event.target.matches("[data-quantity]")) editQuantity(event.target, true);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing || !event.target.matches("[data-quantity]")) return;
+    event.preventDefault();
+    editQuantity(event.target, true);
+    if (!event.target.isConnected) {
+      (listBody.querySelector("[data-quantity]") ?? drawer.querySelector("[data-close]")).focus({ preventScroll: true });
+    }
   });
 
   for (const dialog of [detail, drawer, exportDialog]) {

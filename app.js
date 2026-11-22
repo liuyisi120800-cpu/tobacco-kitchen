@@ -30,6 +30,12 @@
   const download = get("download-image");
   const filters = ["tar", "nicotine", "type"];
   const toast = get("toast");
+  const adminOrigin = configuredAdminOrigin();
+  if (adminOrigin) {
+    const link = get("developer-link");
+    link.href = adminOrigin + "/admin";
+    link.title = "打开开发者登录";
+  }
 
   const englishBrands = {
     "百乐": "PEEL", "铁塔猫": "RAISON", "爱喜": "ESSE", "中华": "CHUNGHWA",
@@ -45,6 +51,17 @@
 
   function normalized(value) {
     return String(value ?? "").normalize("NFKC").trim().toLowerCase();
+  }
+
+  function configuredAdminOrigin() {
+    const value = document.querySelector('meta[name="catalog-admin-origin"]')?.content.trim();
+    if (!value) return "";
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && value === url.origin ? value : "";
+    } catch {
+      return "";
+    }
   }
 
   function esc(value) {
@@ -428,44 +445,55 @@
     }
   }
 
-  async function refreshPublicUpdates() {
-    if (location.protocol === "file:" || document.hidden) return;
+  async function loadCatalogUpdate(url) {
     try {
-      const response = await fetch(`data/updates.json?t=${Math.floor(Date.now() / 30000)}`, {
+      const requestUrl = new URL(url, location.href);
+      requestUrl.searchParams.set("t", Math.floor(Date.now() / 30000));
+      const response = await fetch(requestUrl, {
         cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
         signal: AbortSignal.timeout(5000)
       });
-      if (!response.ok) return;
+      if (!response.ok) return null;
       const update = await response.json();
-      if (!Number.isSafeInteger(update.revision) || update.revision <= catalogRevision || !Array.isArray(update.products)) return;
-      const merged = new Map(baseProducts.map(product => [product.id, product]));
-      for (const product of update.products) {
-        if (Number.isSafeInteger(product.id) && product.name && product.brand) merged.set(product.id, product);
-      }
-      products = [...merged.values()];
-      catalogRevision = update.revision;
-      indexProducts();
-      for (const [id, quantity] of pendingList) {
-        const product = byId.get(id);
-        if (product && !product.outOfStock && quantity <= quantityLimit) list.set(id, quantity);
-      }
-      pendingList.clear();
-      const unavailable = [...list.keys()].filter(id => !byId.has(id) || byId.get(id).outOfStock);
-      if (unavailable.length) {
-        for (const id of unavailable) list.delete(id);
-        persistList();
-        notify(`${unavailable.length} 款已缺货，已从清单移除。`, drawer.open ? drawer : detail.open ? detail : null);
-      }
-      renderCatalogFilters();
-      renderCatalog();
-      listBody.replaceChildren();
-      renderList();
-      if (detail.open) {
-        const item = byId.get(Number(detail.dataset.activeProduct));
-        if (item) openDetail(item);
-      }
+      return Number.isSafeInteger(update.revision) && update.revision >= 0 && Array.isArray(update.products) ? update : null;
     } catch {
       // The published baseline remains available while the update file is unreachable.
+      return null;
+    }
+  }
+
+  async function refreshPublicUpdates() {
+    if (location.protocol === "file:" || document.hidden) return;
+    let update = adminOrigin ? await loadCatalogUpdate(adminOrigin + "/api/catalog/updates") : null;
+    if (!update?.revision) update = await loadCatalogUpdate("data/updates.json");
+    if (!update || update.revision <= catalogRevision) return;
+    const merged = new Map(baseProducts.map(product => [product.id, product]));
+    for (const product of update.products) {
+      if (Number.isSafeInteger(product.id) && product.name && product.brand) merged.set(product.id, product);
+    }
+    products = [...merged.values()];
+    catalogRevision = update.revision;
+    indexProducts();
+    for (const [id, quantity] of pendingList) {
+      const product = byId.get(id);
+      if (product && !product.outOfStock && quantity <= quantityLimit) list.set(id, quantity);
+    }
+    pendingList.clear();
+    const unavailable = [...list.keys()].filter(id => !byId.has(id) || byId.get(id).outOfStock);
+    if (unavailable.length) {
+      for (const id of unavailable) list.delete(id);
+      persistList();
+      notify(`${unavailable.length} 款已缺货，已从清单移除。`, drawer.open ? drawer : detail.open ? detail : null);
+    }
+    renderCatalogFilters();
+    renderCatalog();
+    listBody.replaceChildren();
+    renderList();
+    if (detail.open) {
+      const item = byId.get(Number(detail.dataset.activeProduct));
+      if (item) openDetail(item);
     }
   }
 

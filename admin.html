@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>开发者模式 | 烟草厨房</title>
+  <link rel="icon" href="/assets/leaf.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+  <script defer src="/admin.js"></script>
+</head>
+<body class="admin-page">
+  <header class="admin-header">
+    <div class="shell admin-header-inner">
+      <a class="wordmark" href="https://liuyisi120800-cpu.github.io/tobacco-kitchen/">
+        <img src="/assets/leaf.svg" width="42" height="42" alt="">
+        <span><b>烟草厨房</b><small>TOBACCO KITCHEN</small></span>
+      </a>
+      <div class="admin-header-actions" id="admin-header-actions" hidden>
+        <button class="admin-outline" id="logout" type="button">退出登录</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <h1 id="login-title">开发者登录</h1>
+      <p>登录后可管理目录和商品库存。</p>
+      <form id="login-form">
+        <label>账号<input name="username" autocomplete="username" required></label>
+        <label>密码<input type="password" name="password" autocomplete="current-password" required></label>
+        <p class="admin-error" id="login-error" role="alert" hidden></p>
+        <button class="button button-green" id="login-submit" type="submit">登录开发者模式</button>
+      </form>
+    </section>
+
+    <section id="admin-panel" aria-labelledby="admin-title" hidden>
+      <div class="admin-heading">
+        <div><h1 id="admin-title">目录管理</h1><p id="catalog-count"></p></div>
+        <button class="button button-green" id="new-product" type="button">新增款式</button>
+      </div>
+      <div class="sync-panel">
+        <p id="sync-status" role="status" aria-live="polite"></p>
+        <button id="retry-sync" class="admin-outline" type="button" hidden>重试发布</button>
+        <a class="admin-text-link" href="https://liuyisi120800-cpu.github.io/tobacco-kitchen/" target="_blank" rel="noopener noreferrer">打开公开目录</a>
+      </div>
+      <div class="admin-workspace">
+        <aside class="admin-results" aria-label="目录款式">
+          <div class="results-filters">
+            <label>搜索款式<input id="admin-search" type="search" placeholder="品牌、品名或序号"></label>
+            <label>地区<select id="admin-region-filter">
+              <option value="">全部地区</option><option value="domestic">国内</option>
+              <option value="international">国外</option><option value="unknown">待核对</option>
+            </select></label>
+          </div>
+          <p class="admin-muted" id="admin-results-count"></p>
+          <div id="admin-list"></div>
+          <div class="admin-pagination">
+            <button id="previous-page" class="admin-outline" type="button">上一页</button>
+            <span id="admin-page-count"></span>
+            <button id="next-page" class="admin-outline" type="button">下一页</button>
+          </div>
+        </aside>
+
+        <section class="editor-panel" aria-labelledby="editor-title">
+          <div class="editor-heading">
+            <h2 id="editor-title">新增款式</h2>
+            <span id="editor-id" class="admin-muted"></span>
+          </div>
+          <form id="product-form">
+            <div class="admin-fields">
+              <label>品牌<input name="brand" list="known-brands" maxlength="100" required placeholder="选择已有品牌或输入新品牌"><datalist id="known-brands"></datalist></label>
+              <label>款式名称<input name="name" maxlength="160" required></label>
+              <label>目录<select name="region" required><option value="">请选择地区</option><option value="domestic">国内烟（含港澳台）</option><option value="international">国外烟</option><option value="unknown">待核对</option></select></label>
+              <label>类型<input name="type" maxlength="120" placeholder="例如细支、硬盒"></label>
+              <label>参考价（元 / 包）<input name="price" type="number" min="0" step="0.01" placeholder="留空表示未标价"></label>
+              <label>焦油量（mg / 支）<input name="tar" type="number" min="0" step="any" placeholder="留空表示待核对"></label>
+              <label>尼古丁量（mg / 支）<input name="nicotine" type="number" min="0" step="any" placeholder="留空表示待核对"></label>
+              <label class="stock-field"><input name="outOfStock" type="checkbox"><span>标记为缺货</span></label>
+              <label class="wide">款式介绍<textarea name="description" maxlength="2000" rows="4"></textarea></label>
+              <label class="wide">包装图地址<input name="image" maxlength="1024" placeholder="可填写 HTTPS 图片地址"></label>
+              <label class="wide">上传包装实拍<input id="upload-photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              <img id="image-preview" alt="包装图片预览" hidden>
+            </div>
+            <div class="editor-footer">
+              <p id="editor-message" role="status" aria-live="polite"></p>
+              <button id="save-product" type="submit" class="button button-green">保存并发布</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

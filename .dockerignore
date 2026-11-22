@@ -1,0 +1,15 @@
+**
+!Dockerfile
+!server/
+!server/admin.py
+!server/publisher.py
+!admin.html
+!admin.css
+!admin.js
+!styles.css
+!data/
+!data/catalog.js
+!assets/
+!assets/leaf.svg
+!assets/products/
+!assets/products/**
